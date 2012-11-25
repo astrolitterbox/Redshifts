@@ -5,8 +5,7 @@ import math
 import distance as cosmology
 import matplotlib.pyplot as plt
 from califa_cmap import califa_vel, califa_int
-
-
+from congrid import congrid
 # -------------------------- A few ideas:
 #1: Surface brightness dimming
 #2: Set exposure time as free variable, depending on S/N
@@ -27,16 +26,16 @@ def get_magnification(z_in, z_out):
 	magnification = (lumdist_in/lumdist_out) *((1.+z_out)**2/(1.+z_in)**2)         #*(p_hi/p_lo))[0] -- we assume pixel scale is the same
 	return magnification
 
-def flux_scaling(cube, z_in, z_out):
-	print 'kaciukai'
-	#multiply the values of binned spaxels by the flux ratio
-	#2.5*log(f_o/f_i) = (luminosity_distance_in/luminosity_distance_in)^2
-
-
-
-def binCube(cube, factor):
-	rebinnedCube = np.resize(cube, factor*cube.shape)
-	return rebinnedCube
+def get_scaled_flux(cube, z_out):
+	flux_ratio = (1+z_out)**4
+	print flux_ratio, 'flux ratio'
+	return cube/flux_ratio
+	
+def rebin(data, new_shape):
+    N = 4
+    height, width = data.shape
+    #data = np.average(np.split(np.average(np.split(data, width // N, axis=1), axis=-1), height // N, axis=1), axis=-1)
+    
 
 ### START rfits_img
 def read_fits_img(filename):
@@ -83,8 +82,6 @@ def plot_img(fitsdata,filename):
 #different instrument sensitivities: sky background
 
 
-print get_magnification(0.002, 0.05)
-print get_magnification(0.00331, 0.05)
 filename='data/ARP220.V1200.rscube.fits'
 
 
@@ -95,8 +92,14 @@ print fitsdata[1450,:, :].shape
 plot_img(fitsdata[1450,:, :],filename[5:-4])
 
 factor = get_magnification(0.015, 0.05)
-rebinned = binCube(fitsdata[1450,:, :], factor)
-plot_img(rebinned, 'reb'+filename[5:-4])
+print factor, factor*fitsdata[1450,:, :].shape[1]
+cube = np.vstack(fitsdata[1450,:, :])
+
+print cube.shape, type(cube)
+cube = get_scaled_flux(cube, 0.05)
+
+#rebinned = congrid(cube, (cube.shape[0]*factor, cube.shape[1] * factor), method='linear', centre=False, minusone=False)
+plot_img(cube, 'reb'+filename[5:-4])
 
 exit()
 
