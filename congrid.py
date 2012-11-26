@@ -35,9 +35,9 @@ def congrid(a, newdims, method='linear', centre=True, minusone=False, preserveFl
 
     m1 = n.cast[int](minusone)
     ofs = n.cast[int](centre) * 0.5
-    print 'a.shape:', a.shape, len(a.shape), ofs, 'ofs'
+    #print 'a.shape:', a.shape, len(a.shape), ofs, 'ofs'
     old = n.array( a.shape )
-    print old, 'old', m1, 'm1', minusone, 'minusone'
+    #print old, 'old', m1, 'm1', minusone, 'minusone'
     ndims = len( a.shape ) #checks the dimensions of the input and output arrays
     if len( newdims ) != ndims:
         print "[congrid] dimensions error. " \
@@ -77,7 +77,7 @@ def congrid(a, newdims, method='linear', centre=True, minusone=False, preserveFl
         trorder = [ndims - 1] + range( ndims - 1 )
         for i in range( ndims - 2, -1, -1 ):
             newa = newa.transpose( trorder )
-
+		
             mint = scipy.interpolate.interp1d( olddims[i], newa, kind=method )
             newa = mint( dimlist[i] )
 
