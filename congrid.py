@@ -4,7 +4,7 @@ import scipy.interpolate
 import scipy.ndimage
 import pyfits
 
-def congrid(a, newdims, method='linear', centre=False, minusone=False, preserveFlux=True):
+def congrid(a, newdims, method='linear', centre=True, minusone=False, preserveFlux=True):
     '''Arbitrary resampling of source array to new dimension sizes.
     Currently only supports maintaining the same number of dimensions.
     To use 1-D arrays, first promote them to shape (x,1).
@@ -35,8 +35,9 @@ def congrid(a, newdims, method='linear', centre=False, minusone=False, preserveF
 
     m1 = n.cast[int](minusone)
     ofs = n.cast[int](centre) * 0.5
-    print 'a.shape:', a.shape, len(a.shape)
+    print 'a.shape:', a.shape, len(a.shape), ofs, 'ofs'
     old = n.array( a.shape )
+    print old, 'old', m1, 'm1', minusone, 'minusone'
     ndims = len( a.shape ) #checks the dimensions of the input and output arrays
     if len( newdims ) != ndims:
         print "[congrid] dimensions error. " \
@@ -47,10 +48,15 @@ def congrid(a, newdims, method='linear', centre=False, minusone=False, preserveF
     dimlist = []
 
     if method == 'neighbour':
+    	print ndims, 'ndims', newdims, 'newdims'
         for i in range( ndims ):
             base = n.indices(newdims)[i]
-            dimlist.append( (old[i] - m1) / (newdims[i] - m1) \
-                            * (base + ofs) - ofs )
+            #print base, 'base', i, 'i'
+            #new indices array
+            dimlist.append( (old[i] - m1) / (newdims[i] - m1) * (base + ofs) - ofs )
+            #old -- array with input shape, i.e. [73, 78].
+            #m1, ofs -- offset and cropping
+            #in each dimension, we divide old array ith dimension by new dimension times new [i] indices array                 
         cd = n.array( dimlist ).round().astype(int)
         newa = a[list( cd )]
         return newa

@@ -60,7 +60,7 @@ def plot_img(fitsdata,filename):
     cbar = fig1.colorbar(cax)
     plt.savefig(filename)
 
-
+#def get_convolved_image(cube, 
 
 
 		
@@ -87,19 +87,28 @@ filename='data/ARP220.V1200.rscube.fits'
 
 fitsdata,fitshdr=read_fits_img(filename)
 
-print fitsdata[1450,:, :].shape
+#print fitsdata[1450,:, :].shape
 
 plot_img(fitsdata[1450,:, :],filename[5:-4])
 
 factor = get_magnification(0.015, 0.05)
-print factor, factor*fitsdata[1450,:, :].shape[1]
-cube = np.vstack(fitsdata[1450,:, :])
+#print factor, 'factor'
+cube = fitsdata[1450,:, :]
 
-print cube.shape, type(cube)
-cube = get_scaled_flux(cube, 0.05)
+#factor = 0.5
+#print int(round(cube.shape[0]*factor, 0)), int(round(cube.shape[1] * factor, 0)), 'new shape'
+#cube = get_scaled_flux(cube, 0.05)
+#cube = np.ones((4, 4))
+#cube[1:3, 1:3] = 5
+#cube[2, 2] = 8
 
-#rebinned = congrid(cube, (cube.shape[0]*factor, cube.shape[1] * factor), method='linear', centre=False, minusone=False)
-plot_img(cube, 'reb'+filename[5:-4])
+
+rebinned = congrid(cube, (int(round(cube.shape[0]*factor, 0)), int(round(cube.shape[1] * factor, 0))), method='linear', centre=True, minusone=False)
+
+ #(cube.shape[0]/rebinned.shape[0])*(cube.shape[1]/rebinned.shape[1])
+
+print np.sum((1/factor**2)*rebinned), np.sum(cube)
+plot_img((1/factor**2)*rebinned, 'reb'+filename[5:-4])
 
 exit()
 
