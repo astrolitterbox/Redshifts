@@ -15,6 +15,9 @@ import scipy.signal
 #4: Various binning scenarios
 
 fwhm = 3.7
+z_out = 0.05
+z_in = 0.018
+
 
 cosmo = {'omega_M_0':0.272, 'omega_lambda_0':0.728, 'omega_k_0':0.0, 'h':0.7}
 
@@ -30,14 +33,8 @@ def get_magnification(z_in, z_out):
 
 def get_scaled_flux(cube, z_out):
 	flux_ratio = (1+z_out)**4
-	print flux_ratio, 'flux ratio'
 	return cube/flux_ratio
-	
-def rebin(data, new_shape):
-    N = 4
-    height, width = data.shape
-    #data = np.average(np.split(np.average(np.split(data, width // N, axis=1), axis=-1), height // N, axis=1), axis=-1)
-    
+
 
 ### START rfits_img
 def read_fits_img(filename):
@@ -65,10 +62,6 @@ def plot_img(fitsdata,filename):
 def get_convolved_image(cube, fwhm):
 	psf = make_gauss.make_2d_gaussian(51, fwhm)
 	out=scipy.signal.convolve2d(cube,psf,mode='same',boundary='fill', fillvalue=0)
-	#h=pyfits.PrimaryHDU(out,head)
-	#hdu2=pyfits.HDUList([h])
-	#if os.path.exists('convolved.fits'): os.unlink('convolved.fits')
-	#hdu2.writeto('convolved.fits')
 	return out
 
 
@@ -91,16 +84,17 @@ def get_convolved_image(cube, fwhm):
 #different instrument sensitivities: sky background
 
 
-filename='data/ARP220.V1200.rscube.fits'
+filename = 'data/ARP220.COMB.rscube.fits '
 
 
 fitsdata,fitshdr=read_fits_img(filename)
 
 #print fitsdata[1450,:, :].shape
 
-#plot_img(fitsdata[1450,:, :],filename[5:-4])
+plot_img(fitsdata[1450,:, :],'ARP220_1450')
 
-factor = get_magnification(0.015, 0.05)
+exit()
+factor = get_magnification(z_in, z_out)
 #print factor, 'factor'
 cube = fitsdata
 
@@ -113,24 +107,29 @@ cube = fitsdata
 
 print cube.shape
 rebinned = np.empty((cube.shape[0], int(round(cube.shape[1]*factor, 0)), int(round(cube.shape[2] * factor, 0))))
-print rebinned.shape, 'shape of resized cube'
+print rebinned.shape, 'shape of resized cube', 1/factor**2, '/factor**2'
 
 outputShape = int(round(cube.shape[1]*factor, 0)), int(round(cube.shape[2] * factor, 0))
-print outputShape, 'output shape'
 for i in range(0, cube.shape[0]):
 	cube_slice = cube[i, :, :]
 	rebinned[i, :, :] = congrid(cube_slice, outputShape, method='linear', centre=True, minusone=False)
-	#rebinned[i, :, :] = get_convolved_image(congrid(cube_slice, outputShape, method='linear', centre=True, minusone=False), fwhm)
-#cube = get_convolved_image(cube, fwhm)
- #(cube.shape[0]/rebinned.shape[0])*(cube.shape[1]/rebinned.shape[1])
+	rebinned[i, :, :] = (1/factor**2)*rebinned[i, :, :]
+	rebinned[i, :, :] = get_scaled_flux(rebinned[i, :, :], z_out)
+	#rebinned[i, :, :] = get_convolved_image(rebinned[i, :, :], fwhm)
 
+
+
+print np.sum(rebinned), np.sum(cube)
 h=pyfits.PrimaryHDU(rebinned)
 hdu2=pyfits.HDUList([h])
 #if os.path.exists('convolved.fits'): os.unlink('convolved.fits')
 hdu2.writeto('resized.fits')
 
+filename = 'resized.fits'
+fitsdata,fitshdr=read_fits_img(filename)
+plot_img(fitsdata[1450,:, :],'res_'+filename[:-4])
 
-print np.sum((1/factor**2)*rebinned), np.sum(cube)
+
 #plot_img((1/factor**2)*rebinned, 'reb'+filename[5:-4])
 
 exit()
