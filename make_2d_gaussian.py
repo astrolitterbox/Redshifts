@@ -12,7 +12,6 @@ def gaussian_ftn(y,x):
 
 def make_2d_gaussian(size, fwhm):
 	global xc, yc, sigma
-	size = 51                 # width of image required
 	xc = float(size-1)/2.
 	yc = float(size-1)/2.
 	sigma = fwhm/2.35482
