@@ -16,9 +16,10 @@ import scipy.signal
 #2: Set exposure time as free variable, depending on S/N
 
 fwhm = 3.7
-z_out = 0.05
+z_out = 0.0499
 z_in = 0.018
-psf = make_gauss.make_2d_gaussian(17, fwhm)
+psf = make_gauss.make_2d_gaussian(79, fwhm)
+psf = psf[3:-3, 1:]
 cosmo = {'omega_M_0':0.272, 'omega_lambda_0':0.728, 'omega_k_0':0.0, 'h':0.7}
 
 cosmo = cosmology.set_omega_k_0(cosmo)
@@ -62,8 +63,13 @@ def get_convolved_image(cube, psf):
 	return scipy.signal.convolve2d(cube,psf,mode='same',boundary='fill', fillvalue=0)
 	
 
-def get_deconvolved_image(cube, psf):
-	return scipy.signal.deconvolve(cube, psf)
+def get_deconvolved_image(image, psf):
+	#OriginalImage = inverse_FFT[ FFT(ObservedImage) / FFT(PointSpreadFunction) ]
+	deconvolved_image = np.fft.irfft2(scipy.signal.wiener((np.fft.rfft2(image))/scipy.signal.wiener(np.fft.rfft2(psf))))
+	#h=pyfits.PrimaryHDU(deconvolved_image)
+	#hdu2=pyfits.HDUList(h)
+	#hdu2.writeto('deconv_'+'.fits')
+	return deconvolved_image
 		
 
 
@@ -77,10 +83,10 @@ def do_redshifting(cube, factor, psf, convolve=True):
 
   for i in range(0, cube.shape[0]):
 	  cube_slice = cube[i, :, :]
-	  #cube_slice = get_deconvolved_image(cube_slice, psf)
+	  #rebinned = np.real(get_deconvolved_image(cube_slice, psf))
 	  rebinned[i, :, :] = congrid(cube_slice, outputShape, method='linear', centre=True, minusone=False)
 	  rebinned[i, :, :] = areaFactor*rebinned[i, :, :]
-	  rebinned[i, :, :] = get_scaled_flux(rebinned[i, :, :], z_out)
+	  rebinned[i, :, :] = get_scaled_flux(rebinned[i, :, :], z_out)	  
 	  if convolve == True:   
 	    rebinned[i, :, :] = get_convolved_image(rebinned[i, :, :], psf)
   return rebinned
@@ -91,32 +97,70 @@ def do_redshifting(cube, factor, psf, convolve=True):
 #different psfs
 #different instrument sensitivities: sky background
 
-
 filename = 'data/NGC4676B.V1200.rscube.fits.gz'
 
-
-fitsdata,fitshdr=read_fits_img(filename)
-
-
-factor = get_magnification(z_in, z_out)
+# ----------------------- data extension -- 
+hdulist = pyfits.open(filename)
+#hdulist.info()
+fitsdata = hdulist[0].data
+fitshdr = hdulist[0].header
 cube = fitsdata
+factor = get_magnification(z_in, z_out)
+print factor, factor*(cube.shape[1]), factor*(cube.shape[2])
 print cube.shape, 'cube shape'
-rebinned = do_redshifting(cube, factor, psf, True)
-
-print rebinned.shape, 'shape of resized cube', 1/factor**2, '/factor**2'
-print np.sum(rebinned), np.sum(cube)
-h=pyfits.PrimaryHDU(rebinned, header=fitshdr)
+#rebinned = do_redshifting(cube, factor, psf, True)
+#print rebinned.shape, 'shape of resized cube', 1/factor**2, '/factor**2'
+#print np.sum(rebinned), np.sum(cube)
+#h=pyfits.PrimaryHDU(rebinned, header=fitshdr)
+h=pyfits.PrimaryHDU(cube, header=fitshdr)
 hdu2=pyfits.HDUList([h])
 #if os.path.exists('convolved.fits'): os.unlink('convolved.fits')
-hdu2.writeto('conv_'+filename[5:-21]+'.fits')
+hdu2.writeto('NGC4676B_big.fits')
 
-plot_img(cube[1450,:, :], filename[5:-21]+'_slice')
+
+
+# ----------------------- errors ------------------
+
+
+hdulist = pyfits.open(filename)
+hdulist.info()
+fitsdata = hdulist['ERROR'].data
+fitshdr = hdulist[0].header
+cube = fitsdata
+
+factor = get_magnification(z_in, z_out)
+print factor, factor*(cube.shape[1]), factor*(cube.shape[2])
+print cube.shape, 'cube shape'
+#rebinned = do_redshifting(cube, factor, psf, False)
+#rebinned = rebinned*factor**2
+#print rebinned.shape, 'shape of resized cube', 1/factor**2, '/factor**2'
+#print np.sum(rebinned), np.sum(cube)
+#h=pyfits.PrimaryHDU(rebinned, header=fitshdr)
+h=pyfits.PrimaryHDU(cube, header=fitshdr)
+hdu2=pyfits.HDUList([h])
+#if os.path.exists('convolved.fits'): os.unlink('convolved.fits')
+hdu2.writeto('NGC4676B_err_big.fits')
+
+
+
+
+
+
+
+
+
+
+
+
+exit()
+#plot_img(cube[1450,:, :], filename[5:-21]+'_deconv_slice')
 #filename = 'resized.fits'
-#fitsdata,fitshdr=read_fits_img(filename)
+
 #plot_img(fitsdata[1450,:, :], filename[5:-21])
 
 
-plot_img(rebinned[1450,:,:], 'conv_'+filename[5:-21])
+#plot_img(rebinned[1450,:,:], 'conv_deconv_'+filename[5:-21])
+#plot_img(rebinned[1450, :, :], 'conv_'+filename[5:-21])
 exit()
 redshifts = 0.01*np.arange(1, 5)
 size = np.empty((redshifts.shape))
