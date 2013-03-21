@@ -44,7 +44,7 @@ def read_fits_img(filename):
     #out=np.zeros((ny,nx))
     #infinite=np.isfinite(fitsdata,out)
     #fitsdata=fitsdata*out
-    fitsdata=np.nan_to_num(fitsdata)
+    #fitsdata=np.nan_to_num(fitsdata)
     return fitsdata,fitshdr
     
     
@@ -71,8 +71,9 @@ def get_deconvolved_image(image, psf):
 
 
 def do_redshifting(cube, factor, psf, convolve=True):
-  outputShape = int(round(cube.shape[1]/factor, 0)), int(round(cube.shape[2]/factor, 0))
-  rebinned = np.empty((cube.shape[0], int(round(cube.shape[1]/factor, 0)), int(round(cube.shape[2] / factor, 0))))
+  outputShape = cube.shape[1]/factor, cube.shape[2]/factor
+  rebinned = np.empty((cube.shape[0], outputShape[0], outputShape[1]), dtype=np.float32)
+  diff = np.empty((cube.shape[0], 1), dtype=np.float64)
   print cube.shape, 'cshape', psf.shape, 'psf', rebinned.shape, 'rebinned', outputShape, 'os'
   #fluxFactor = (cube.shape[1]/rebinned.shape[1])*(cube.shape[2]/rebinned.shape[2])
 
@@ -80,15 +81,23 @@ def do_redshifting(cube, factor, psf, convolve=True):
 
   for i in range(0, cube.shape[0]):
 	  cube_slice = cube[i, :, :]
+
 	  if convolve == True:
-	    cube_slice = get_convolved_image(cube_slice, psf)
-	  #rebinned = np.real(get_deconvolved_image(cube_slice, psf))
-	  #rebinned[i, :, :] = get_scaled_flux(rebinned[i, :, :], z_out)	  
+	    cube_slice = get_convolved_image(cube_slice, psf)	  
 	  rebinned[i, :, :] = congrid(cube_slice, outputShape, method='linear', centre=True, minusone=False)
-	  areaFactor=(cube.shape[1]*cube.shape[2])/(rebinned.shape[1]*rebinned.shape[2])
-	  rebinned[i, :, :] = areaFactor*rebinned[i, :, :]
-
-
+	  #rebinned[i, :, :] = np.round(rebinned[i, :, :], 3)
+	  #areaFactor=(cube.shape[1]*cube.shape[2])/(rebinned.shape[1]*rebinned.shape[2])
+	  #print areaFactor, cube.shape[1], cube.shape[2], outputShape
+	  #rebinned[i, :, :] = areaFactor*rebinned[i, :, :]
+	  fluxRatio = np.sum(cube_slice)/np.sum(rebinned[i, :, :])
+	  #rebinned[i, :, :] = np.floor(rebinned[i, :, :])
+	  #print fluxRatio, 'FL'  
+	  rebinned[i, :, :] = rebinned[i, :, :]*fluxRatio #flux preserving
+	  #print np.sum(rebinned[i, :, :]) - np.sum(cube_slice), 'diff'
+	  #rebinned[i, :, :] = np.floor(rebinned[i, :, :])
+	  #print np.sum(cube_slice)/np.sum(rebinned[i, :, :]), 'FL2', np.sum(cube_slice), np.sum(rebinned[i, :, :])
+	  diff[i] = np.sum(rebinned[i, :, :]) - np.sum(cube_slice)
+  print np.sum(cube), np.sum(rebinned), np.sum(diff), 'diff'
   return rebinned
 
 
@@ -99,38 +108,40 @@ def do_redshifting(cube, factor, psf, convolve=True):
 
 
 galaxy_name = sys.argv[1]
-
+z_fname = sys.argv[2]
+conv_type = sys.argv[3]
 filename = 'data/Z0_'+galaxy_name+'.rscube.fits'
-
-
 
 z_out = 0.05 
 z_in = 0.01728 #0.002392  for NGC1637 #0.001728 #for NGC1058, 
-
-
 
 # ----------------------- data extension -- 
 hdulist = pyfits.open(filename)
 #hdulist.info()
 fitsdata = hdulist[0].data
 fitshdr = hdulist[0].header
-cube = fitsdata
+print type(fitsdata), fitsdata.dtype
+
+cube = fitsdata.astype(np.float32)
+#cube = np.empty((fitsdata.shape), dtype=np.float64)
+#cube = fitsdata
+print cube.dtype, 'cube'
 #factor = get_magnification(z_in, z_out)
 factor = 3
 fwhm = 3.5*factor
-psf = make_gauss.make_2d_gaussian(101, fwhm)
+psf = make_gauss.make_2d_gaussian(45, fwhm)
 #psf = psf[3:-3, 1:]
-print psf.shape, 'psf'
-print factor, 'factor'
+
 rebinned = do_redshifting(cube, factor, psf, True)
-print rebinned.shape, 'shape of resized cube', 1/factor**2, '/factor**2'
-print np.sum(rebinned), np.sum(cube)
+print cube.dtype, 'cube'
+
+print np.sum(rebinned), np.sum(cube), np.sum(fitsdata)
 #rebinned = np.swapaxes(rebinned, 1, 2)
 h=pyfits.PrimaryHDU(rebinned, header=fitshdr)
 #h=pyfits.PrimaryHDU(cube, header=fitshdr)
 hdu2=pyfits.HDUList([h])
-#if os.path.exists('convolved.fits'): os.unlink('convolved.fits')
-hdu2.writeto('output/Z1_'+galaxy_name+'_conv_before.fits', clobber=True)
+
+hdu2.writeto('output/Z'+z_fname+'_'+galaxy_name+'_conv_'+conv_type+'.fits', clobber=True)
 
 exit()
 

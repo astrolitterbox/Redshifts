@@ -27,12 +27,13 @@ def make_2d_gaussian(size, fwhm):
 		     gaussian_ftn(y1+0.8333,x1+0.1667) + gaussian_ftn(y1+0.8333,x1+0.5) +  gaussian_ftn(y1+0.8333,x1+0.8333) )
 	    psf[iy][ix] = val2/9.0
 
-	sum = psf.sum() 
-	psf = psf/sum   # normalise total value to 1
-	return psf
-	#h=pyfits.PrimaryHDU(psf)
+	psf_sum = psf.sum() 
+	psf = psf/psf_sum   # normalise total value to 1
+	h=pyfits.PrimaryHDU(psf)
 	#hdu2=pyfits.HDUList([h])
 	#if os.path.exists(outputFilename+'.fits'): os.unlink(outputFilename+'.fits')
-	#hdu2.writeto(outputFilename+'.fits')
+	h.writeto('output/psf_new.fits', clobber=True)
+	return psf
+
 
 #make_2d_gaussian(51, 3.7, 'psf')	
