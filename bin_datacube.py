@@ -72,7 +72,7 @@ def get_deconvolved_image(image, psf):
 
 def do_redshifting(cube, factor, psf, convolve=True):
   outputShape = cube.shape[1]/factor, cube.shape[2]/factor
-  rebinned = np.empty((cube.shape[0], outputShape[0], outputShape[1]), dtype=np.float32)
+  rebinned = np.empty((cube.shape[0], outputShape[0], outputShape[1]), dtype=np.float64)
   diff = np.empty((cube.shape[0], 1), dtype=np.float64)
   print cube.shape, 'cshape', psf.shape, 'psf', rebinned.shape, 'rebinned', outputShape, 'os'
   #fluxFactor = (cube.shape[1]/rebinned.shape[1])*(cube.shape[2]/rebinned.shape[2])
@@ -81,22 +81,17 @@ def do_redshifting(cube, factor, psf, convolve=True):
 
   for i in range(0, cube.shape[0]):
 	  cube_slice = cube[i, :, :]
-
-	  if convolve == True:
-	    cube_slice = get_convolved_image(cube_slice, psf)	  
 	  rebinned[i, :, :] = congrid(cube_slice, outputShape, method='linear', centre=True, minusone=False)
-	  #rebinned[i, :, :] = np.round(rebinned[i, :, :], 3)
-	  #areaFactor=(cube.shape[1]*cube.shape[2])/(rebinned.shape[1]*rebinned.shape[2])
-	  #print areaFactor, cube.shape[1], cube.shape[2], outputShape
-	  #rebinned[i, :, :] = areaFactor*rebinned[i, :, :]
 	  fluxRatio = np.sum(cube_slice)/np.sum(rebinned[i, :, :])
-	  #rebinned[i, :, :] = np.floor(rebinned[i, :, :])
-	  #print fluxRatio, 'FL'  
+
 	  rebinned[i, :, :] = rebinned[i, :, :]*fluxRatio #flux preserving
+	  diff[i] = np.sum(rebinned[i, :, :]) - np.sum(cube_slice)	  
 	  #print np.sum(rebinned[i, :, :]) - np.sum(cube_slice), 'diff'
 	  #rebinned[i, :, :] = np.floor(rebinned[i, :, :])
-	  #print np.sum(cube_slice)/np.sum(rebinned[i, :, :]), 'FL2', np.sum(cube_slice), np.sum(rebinned[i, :, :])
-	  diff[i] = np.sum(rebinned[i, :, :]) - np.sum(cube_slice)
+	  print np.sum(cube_slice)/np.sum(rebinned[i, :, :]), 'FL2', np.sum(cube_slice), np.sum(rebinned[i, :, :])
+	  if convolve == True:
+	    rebinned[i, :, :] = get_convolved_image(rebinned[i, :, :], psf)		  
+
   print np.sum(cube), np.sum(rebinned), np.sum(diff), 'diff'
   return rebinned
 
@@ -122,13 +117,16 @@ fitsdata = hdulist[0].data
 fitshdr = hdulist[0].header
 print type(fitsdata), fitsdata.dtype
 
-cube = fitsdata.astype(np.float32)
+cube = fitsdata.astype(np.float64)
 #cube = np.empty((fitsdata.shape), dtype=np.float64)
 #cube = fitsdata
 print cube.dtype, 'cube'
 #factor = get_magnification(z_in, z_out)
 factor = 3
-fwhm = 3.5*factor
+if conv_type == 'before':
+  fwhm = 3.5*factor
+elif conv_type == 'after':
+  fwhm = 3.5
 psf = make_gauss.make_2d_gaussian(45, fwhm)
 #psf = psf[3:-3, 1:]
 
@@ -141,7 +139,7 @@ h=pyfits.PrimaryHDU(rebinned, header=fitshdr)
 #h=pyfits.PrimaryHDU(cube, header=fitshdr)
 hdu2=pyfits.HDUList([h])
 
-hdu2.writeto('output/Z'+z_fname+'_'+galaxy_name+'_conv_'+conv_type+'.fits', clobber=True)
+hdu2.writeto('output2/Z'+z_fname+'_'+galaxy_name+'_conv_'+conv_type+'.fits', clobber=True)
 
 exit()
 
