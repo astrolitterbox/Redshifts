@@ -17,14 +17,7 @@ import sys
 #4: Various binning scenarios
 #2: Set exposure time as free variable, depending on S/N
 
-fwhm = 8
-z_out = 0.015 
-z_in = 0.002392 # for NGC1637 #0.001728 #for NGC1058, 
-
-psf = make_gauss.make_2d_gaussian(19, fwhm)
-psf = psf[3:-3, 1:]
-print psf.shape, 'psf'
-cosmo = {'omega_M_0':0.272, 'omega_lambda_0':0.728, 'omega_k_0':0.0, 'h':0.7}
+cosmo = {'omega_M_0':0.3, 'omega_lambda_0':0.7, 'omega_k_0':0.0, 'h':0.7}
 
 cosmo = cosmology.set_omega_k_0(cosmo)
 
@@ -78,21 +71,21 @@ def get_deconvolved_image(image, psf):
 
 
 def do_redshifting(cube, factor, psf, convolve=True):
-  outputShape = int(round(cube.shape[1]*factor, 0)), int(round(cube.shape[2] * factor, 0))
-  rebinned = np.empty((cube.shape[0], int(round(cube.shape[1]*factor, 0)), int(round(cube.shape[2] * factor, 0))))
-  print cube.shape, 'cshape', psf.shape, 'psf'
+  outputShape = int(round(cube.shape[1]/factor, 0)), int(round(cube.shape[2]/factor, 0))
+  rebinned = np.empty((cube.shape[0], int(round(cube.shape[1]/factor, 0)), int(round(cube.shape[2] / factor, 0))))
+  print cube.shape, 'cshape', psf.shape, 'psf', rebinned.shape, 'rebinned', outputShape, 'os'
   #fluxFactor = (cube.shape[1]/rebinned.shape[1])*(cube.shape[2]/rebinned.shape[2])
-  areaFactor=(cube.shape[1]*cube.shape[2])/(rebinned.shape[1]*rebinned.shape[2])
-  print outputShape, 'os',  areaFactor, 'area scale'
+
+  #print outputShape, 'os',  areaFactor, 'area scale'
 
   for i in range(0, cube.shape[0]):
 	  cube_slice = cube[i, :, :]
 	  if convolve == True:
-
-	    rebinned[i, :, :] = get_convolved_image(rebinned[i, :, :], psf)
+	    cube_slice = get_convolved_image(cube_slice, psf)
 	  #rebinned = np.real(get_deconvolved_image(cube_slice, psf))
-	  rebinned[i, :, :] = get_scaled_flux(rebinned[i, :, :], z_out)	  
+	  #rebinned[i, :, :] = get_scaled_flux(rebinned[i, :, :], z_out)	  
 	  rebinned[i, :, :] = congrid(cube_slice, outputShape, method='linear', centre=True, minusone=False)
+	  areaFactor=(cube.shape[1]*cube.shape[2])/(rebinned.shape[1]*rebinned.shape[2])
 	  rebinned[i, :, :] = areaFactor*rebinned[i, :, :]
 
 
@@ -109,15 +102,26 @@ galaxy_name = sys.argv[1]
 
 filename = 'data/Z0_'+galaxy_name+'.rscube.fits'
 
+
+
+z_out = 0.05 
+z_in = 0.01728 #0.002392  for NGC1637 #0.001728 #for NGC1058, 
+
+
+
 # ----------------------- data extension -- 
 hdulist = pyfits.open(filename)
 #hdulist.info()
 fitsdata = hdulist[0].data
 fitshdr = hdulist[0].header
 cube = fitsdata
-factor = get_magnification(z_in, z_out)
-print factor, 'factor', factor*(cube.shape[1]), factor*(cube.shape[2])
-print cube.shape, 'cube shape'
+#factor = get_magnification(z_in, z_out)
+factor = 3
+fwhm = 3.5*factor
+psf = make_gauss.make_2d_gaussian(101, fwhm)
+#psf = psf[3:-3, 1:]
+print psf.shape, 'psf'
+print factor, 'factor'
 rebinned = do_redshifting(cube, factor, psf, True)
 print rebinned.shape, 'shape of resized cube', 1/factor**2, '/factor**2'
 print np.sum(rebinned), np.sum(cube)
@@ -126,7 +130,7 @@ h=pyfits.PrimaryHDU(rebinned, header=fitshdr)
 #h=pyfits.PrimaryHDU(cube, header=fitshdr)
 hdu2=pyfits.HDUList([h])
 #if os.path.exists('convolved.fits'): os.unlink('convolved.fits')
-hdu2.writeto('output/Z1_'+galaxy_name+'_no_conv.fits', clobber=True)
+hdu2.writeto('output/Z1_'+galaxy_name+'_conv_before.fits', clobber=True)
 
 exit()
 
